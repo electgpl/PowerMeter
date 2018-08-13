@@ -1,38 +1,10 @@
-#define ISENSE A0
-#define VSENSE A1
-#define CONST_CORRIENTE 2
-#define CONST_TENSION 530
-#define MUESTRAS 200
-#define MUESTRAS_CAL 100
+#include <math.h>
+#define CONST_CORRIENTE 5
+#define CONST_TENSION   100
+int i=0, adcZ=0; 
+float ADCvRef=0;
+float adc1=0, valorMax1=0, adc2=0, valorMax2=0;
 float tension, corriente, potencia;
-int mVperAmp = 185;
-double tensionACS = 0;
-double amperes = 0;
-int ACSoffset = 0; 
-int i = 0;
-int j = 0;
-int RawValue= 0;
-int ADCvRef = 0;
-float relativo = 0;
-float cero = 0;
-double volts = 0;
-double tensionBAT = 0;
-float atenuacion = 1;
-float valorMedio = 2.5;
-//-----------------------------------------------------------
-//Funcion de Setup
-//-----------------------------------------------------------
-void setup(){
-   Serial.begin(9600);
-   Serial.println("Medidor de Potencia");
-   ADCvRef = vRefADC();
-   Serial.print("Tension de Alimentacion:  ");
-   Serial.print(ADCvRef);
-   Serial.println(" mV");
-   ACSoffset = relativoACS();
-   Serial.println("Relativisar Corriente - 2000ms");
-   delay(2000);
-}
 //-----------------------------------------------------------
 //Funcion de calculo de tension de alimentacion
 //-----------------------------------------------------------
@@ -48,60 +20,33 @@ int vRefADC(){
    return result;
 }
 //-----------------------------------------------------------
-//Funcion de calculo de cero relativo
+//Funcion de configuracion
 //-----------------------------------------------------------
-float relativoACS(){
-   cero = 0;
-   for(j=0;j<MUESTRAS_CAL;j++){
-      RawValue = analogRead(ISENSE);
-      cero = cero + ((RawValue / 1023.0) * ADCvRef);
-      delay(25);
-   }
-   cero = cero / MUESTRAS_CAL;
-   relativo = cero;
-   Serial.print("Relativizando cero: ");
-   Serial.print(relativo);
-   Serial.println(" mV");
-   return relativo;
+void setup(){
+   Serial.begin(9600);
+   ADCvRef = vRefADC();
 }
 //-----------------------------------------------------------
-//Funcion de medicion con el sensor
-//-----------------------------------------------------------
-float mideCorrienteCarga(){
-   amperes = 0;
-   for(i=0;i<MUESTRAS;i++){
-      vRefADC();
-      RawValue = analogRead(ISENSE);
-      tensionACS = (RawValue / 1023.0) * ADCvRef;
-      amperes = amperes + ((tensionACS - ACSoffset) / mVperAmp);
-      delay(1);
-   }
-   corriente = 1.3792 * (amperes / MUESTRAS);
-   return corriente;
-}
-//-----------------------------------------------------------
-//Funcion de medicion de Tension con divisor
-//-----------------------------------------------------------
-float mideTensionBat(){
-   volts = 0;
-   for(i=0;i<MUESTRAS;i++){
-      vRefADC();
-      RawValue = analogRead(VSENSE);
-      tensionBAT = (RawValue / 1023.0) * ADCvRef;
-      volts = volts + tensionBAT;
-      delay(1);
-   }
-   tension = ((volts / MUESTRAS) / 1000) - valorMedio;
-   return tension / atenuacion;
-}
-//-----------------------------------------------------------
-//Funcion principal
+//Funcion repetitiva
 //-----------------------------------------------------------
 void loop(){
-   mideCorrienteCarga();
-   mideTensionBat();
+   do{
+      adcZ=analogRead(A1)-512;
+      delayMicroseconds(20);
+   }while(adcZ<10);
+   for(i=0;i<50;i++){
+      adc1=(analogRead(A1)*ADCvRef/1023.0)-2500;
+      delayMicroseconds(33);
+      valorMax1=adc1*adc1+valorMax1;
+      adc2=(analogRead(A0)*ADCvRef/1023.0)-2500;
+      delayMicroseconds(33);
+      valorMax2=adc2*adc2+valorMax2;
+   }  
+   tension=(sqrt(valorMax1/50)*CONST_TENSION)/1000;
+   corriente=(sqrt(valorMax2/50)*CONST_CORRIENTE)/1000;
+   potencia=tension*corriente;
+   delay(2000);
    potencia = tension * corriente; 
-   delay(1000);
    Serial.print("V:");
    Serial.print(tension);
    Serial.print(" | ");
@@ -111,4 +56,6 @@ void loop(){
    Serial.print("W:");
    Serial.println(potencia);
    Serial.println("");
+   valorMax1=0;
+   valorMax2=0;
 }
